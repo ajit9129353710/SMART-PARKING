@@ -10,9 +10,21 @@ const bookingRoutes = require("./routes/bookingRoutes");
 
 const app = express();
 
+const allowedOrigins = [
+"http://localhost:5173",
+"https://ajit-drqt.vercel.app",
+process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(
 cors({
-origin: process.env.CLIENT_URL || "http://localhost:5173",
+origin: (origin, callback) => {
+if (!origin || allowedOrigins.includes(origin)) {
+callback(null, true);
+} else {
+callback(new Error("Not allowed by CORS"));
+}
+},
 })
 );
 
@@ -37,10 +49,10 @@ app.use("/api/parking", parkingRoutes);
 app.use("/api/bookings", bookingRoutes);
 
 app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.method} ${req.originalUrl}`,
-  });
+res.status(404).json({
+success: false,
+message: "Route not found: ${req.method} ${req.originalUrl}",
+});
 });
 
 const PORT = process.env.PORT || 5000;
