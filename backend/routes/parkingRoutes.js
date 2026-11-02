@@ -3,13 +3,14 @@ const router = express.Router();
 
 const ParkingLot = require("../models/ParkingLot");
 
+
 router.get("/", async (req, res) => {
   try {
     const parkingLots = await ParkingLot.find({
       isActive: true,
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: parkingLots.length,
       parkingLots,
@@ -18,7 +19,7 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("Parking Fetch Error:", error.message);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch parking locations",
     });
@@ -26,10 +27,13 @@ router.get("/", async (req, res) => {
 });
 
 
+
 router.post("/search", async (req, res) => {
+
   let currentStep = "Starting";
 
   try {
+
     const { city } = req.body;
 
     if (!city || typeof city !== "string" || !city.trim()) {
@@ -39,7 +43,10 @@ router.post("/search", async (req, res) => {
       });
     }
 
+
     currentStep = "Nominatim Geocoding";
+
+    console.log("Searching city:", city);
 
     const geoUrl = new URL(
       "https://nominatim.openstreetmap.org/search"
@@ -51,11 +58,13 @@ router.post("/search", async (req, res) => {
 
     const geoResponse = await fetch(geoUrl, {
       method: "GET",
+
       headers: {
         "User-Agent": "ParkSmartApp/1.0",
         "Accept": "application/json",
       },
-      signal: AbortSignal.timeout(8000),
+
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!geoResponse.ok) {
@@ -66,7 +75,7 @@ router.post("/search", async (req, res) => {
 
     const geoData = await geoResponse.json();
 
-    if (!geoData || geoData.length === 0) {
+    if (!Array.isArray(geoData) || geoData.length === 0) {
       return res.status(404).json({
         success: false,
         message: "City not found. Please enter another city.",
@@ -82,38 +91,49 @@ router.post("/search", async (req, res) => {
       throw new Error("Invalid city coordinates received.");
     }
 
+    console.log("City coordinates:", lat, lon);
+
     currentStep = "Overpass Parking Search";
 
+    const radius = 3000;
+
     const query = `
-      [out:json][timeout:12];
+      [out:json][timeout:25];
 
       (
-        node["amenity"="parking"](around:5000,${lat},${lon});
-        way["amenity"="parking"](around:5000,${lat},${lon});
-        relation["amenity"="parking"](around:5000,${lat},${lon});
+        node["amenity"="parking"](around:${radius},${lat},${lon});
+        way["amenity"="parking"](around:${radius},${lat},${lon});
       );
 
       out center tags;
     `;
+
+
     const overpassServers = [
       "https://overpass.private.coffee/api/interpreter",
       "https://overpass.kumi.systems/api/interpreter",
     ];
 
     let overpassData = null;
-    let apiErrors = [];
+
+    const apiErrors = [];
 
     for (const server of overpassServers) {
+
       try {
+
         console.log("Trying Overpass API:", server);
 
         const overpassResponse = await fetch(server, {
+
           method: "POST",
 
           headers: {
             "Content-Type":
               "application/x-www-form-urlencoded;charset=UTF-8",
+
             "Accept": "application/json",
+
             "User-Agent": "ParkSmartApp/1.0",
           },
 
@@ -121,12 +141,14 @@ router.post("/search", async (req, res) => {
             data: query,
           }),
 
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(30000),
+
         });
+
 
         if (!overpassResponse.ok) {
           throw new Error(
-            `API returned status ${overpassResponse.status}`
+            `Overpass returned HTTP ${overpassResponse.status}`
           );
         }
 
@@ -143,6 +165,7 @@ router.post("/search", async (req, res) => {
         break;
 
       } catch (error) {
+
         console.error(
           "Overpass API Failed:",
           server,
@@ -153,45 +176,75 @@ router.post("/search", async (req, res) => {
           server,
           error: error.message,
         });
+
       }
     }
 
     if (!overpassData) {
-      console.error("All Overpass APIs failed:", apiErrors);
+
+      console.error(
+        "All Overpass APIs failed:",
+        apiErrors
+      );
 
       return res.status(503).json({
+
         success: false,
+
+        failedStep: currentStep,
+
         message:
-          "Parking search service is temporarily unavailable. Please try again after some time.",
+          "Parking data service is temporarily unavailable. Please try again later.",
+
       });
     }
+    const elements = overpassData.elements || [];
 
-    res.status(200).json({
+    console.log(
+      "Parking locations found:",
+      elements.length
+    );
+
+    return res.status(200).json({
+
       success: true,
 
       city: location.display_name,
 
       position: [lat, lon],
 
-      elements: overpassData.elements || [],
+      elements,
 
-      count: overpassData.elements.length,
+      count: elements.length,
 
       message: "Parking locations fetched successfully.",
+
     });
+
 
   } catch (error) {
+
     console.error("PARKING SEARCH FAILED");
+
     console.error("FAILED STEP:", currentStep);
+
     console.error("ERROR MESSAGE:", error.message);
+
     console.error("ERROR DETAILS:", error.cause || error);
 
-    res.status(500).json({
+    return res.status(500).json({
+
       success: false,
-      message: error.message || "Parking search failed.",
+
       failedStep: currentStep,
+
+      message: error.message || "Parking search failed.",
+
     });
+
   }
+
 });
+
 
 module.exports = router;
