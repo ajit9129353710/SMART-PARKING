@@ -5,8 +5,7 @@ const allowedOrigins = [
   "https://ajit-drqt.vercel.app",
 ];
 
-app.use(
-  cors({
+app.use(cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
