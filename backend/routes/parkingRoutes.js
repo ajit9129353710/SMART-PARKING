@@ -93,9 +93,8 @@ const query = `
   );
   out center tags;
 `;
-
 const overpassResponse = await fetch(
-  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
   {
     method: "POST",
     headers: {
