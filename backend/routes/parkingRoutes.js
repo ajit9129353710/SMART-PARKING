@@ -3,7 +3,6 @@ const router = express.Router();
 
 const ParkingLot = require("../models/ParkingLot");
 
-
 router.get("/", async (req, res) => {
   try {
     const parkingLots = await ParkingLot.find({
@@ -15,7 +14,6 @@ router.get("/", async (req, res) => {
       count: parkingLots.length,
       parkingLots,
     });
-
   } catch (error) {
     console.error("Parking Fetch Error:", error.message);
 
@@ -26,14 +24,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-
-
 router.post("/search", async (req, res) => {
-
   let currentStep = "Starting";
 
   try {
-
     const { city } = req.body;
 
     if (!city || typeof city !== "string" || !city.trim()) {
@@ -43,10 +37,7 @@ router.post("/search", async (req, res) => {
       });
     }
 
-
     currentStep = "Nominatim Geocoding";
-
-    console.log("Searching city:", city);
 
     const geoUrl = new URL(
       "https://nominatim.openstreetmap.org/search"
@@ -58,12 +49,10 @@ router.post("/search", async (req, res) => {
 
     const geoResponse = await fetch(geoUrl, {
       method: "GET",
-
       headers: {
         "User-Agent": "ParkSmartApp/1.0",
         "Accept": "application/json",
       },
-
       signal: AbortSignal.timeout(15000),
     });
 
@@ -83,15 +72,12 @@ router.post("/search", async (req, res) => {
     }
 
     const location = geoData[0];
-
     const lat = Number(location.lat);
     const lon = Number(location.lon);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
       throw new Error("Invalid city coordinates received.");
     }
-
-    console.log("City coordinates:", lat, lon);
 
     currentStep = "Overpass Parking Search";
 
@@ -108,43 +94,29 @@ router.post("/search", async (req, res) => {
       out center tags;
     `;
 
-
     const overpassServers = [
       "https://overpass.private.coffee/api/interpreter",
       "https://overpass.kumi.systems/api/interpreter",
     ];
 
     let overpassData = null;
-
     const apiErrors = [];
 
     for (const server of overpassServers) {
-
       try {
-
-        console.log("Trying Overpass API:", server);
-
         const overpassResponse = await fetch(server, {
-
           method: "POST",
-
           headers: {
             "Content-Type":
               "application/x-www-form-urlencoded;charset=UTF-8",
-
             "Accept": "application/json",
-
             "User-Agent": "ParkSmartApp/1.0",
           },
-
           body: new URLSearchParams({
             data: query,
           }),
-
           signal: AbortSignal.timeout(30000),
-
         });
-
 
         if (!overpassResponse.ok) {
           throw new Error(
@@ -159,92 +131,42 @@ router.post("/search", async (req, res) => {
         }
 
         overpassData = result;
-
-        console.log("Overpass API successful:", server);
-
         break;
-
       } catch (error) {
-
-        console.error(
-          "Overpass API Failed:",
-          server,
-          error.message
-        );
-
         apiErrors.push({
           server,
           error: error.message,
         });
-
       }
     }
 
     if (!overpassData) {
-
-      console.error(
-        "All Overpass APIs failed:",
-        apiErrors
-      );
-
       return res.status(503).json({
-
         success: false,
-
         failedStep: currentStep,
-
         message:
           "Parking data service is temporarily unavailable. Please try again later.",
-
       });
     }
+
     const elements = overpassData.elements || [];
 
-    console.log(
-      "Parking locations found:",
-      elements.length
-    );
-
     return res.status(200).json({
-
       success: true,
-
       city: location.display_name,
-
       position: [lat, lon],
-
       elements,
-
       count: elements.length,
-
       message: "Parking locations fetched successfully.",
-
     });
-
 
   } catch (error) {
-
-    console.error("PARKING SEARCH FAILED");
-
-    console.error("FAILED STEP:", currentStep);
-
-    console.error("ERROR MESSAGE:", error.message);
-
-    console.error("ERROR DETAILS:", error.cause || error);
-
     return res.status(500).json({
-
       success: false,
-
       failedStep: currentStep,
-
       message: error.message || "Parking search failed.",
-
     });
-
   }
-
 });
-
 
 module.exports = router;
