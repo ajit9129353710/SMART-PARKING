@@ -81,7 +81,7 @@ router.post("/search", async (req, res) => {
 
     currentStep = "Overpass Parking Search";
 
-    const radius = 3000;
+    const radius = 5000;
 
     const query = `
       [out:json][timeout:25];
@@ -94,7 +94,9 @@ router.post("/search", async (req, res) => {
       out center tags;
     `;
 
+    // ऑफिशियल और सबसे भरोसेमंद सर्वर को सबसे ऊपर रखा गया है
     const overpassServers = [
+      "https://overpass-api.de/api/interpreter",
       "https://overpass.private.coffee/api/interpreter",
       "https://overpass.kumi.systems/api/interpreter",
     ];
@@ -115,7 +117,7 @@ router.post("/search", async (req, res) => {
           body: new URLSearchParams({
             data: query,
           }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(35000),
         });
 
         if (!overpassResponse.ok) {
