@@ -1,9 +1,11 @@
-const cors = require("cors");
-
+const express=require('express');
+const app=express();
+const cors=require('cors');
 const allowedOrigins = [
   "http://localhost:5173",
   "https://ajit-drqt.vercel.app",
 ];
+
 
 app.use(cors({
     origin: function (origin, callback) {
