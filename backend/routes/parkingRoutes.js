@@ -4,7 +4,7 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   return res.status(200).json({
     success: true,
-    message: "Parking API is active. Use POST /api/parking/search to search city parking.",
+    message: "Parking API is active.",
   });
 });
 
@@ -59,31 +59,32 @@ router.post("/search", async (req, res) => {
       out center tags;
     `;
 
-    const overpassResponse = await fetch(
-      "https://overpass-api.de/api/interpreter",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-          "Accept": "application/json",
-          "User-Agent": "ParkSmartApp/1.0",
-        },
-        body: new URLSearchParams({
-          data: query,
-        }),
-        signal: AbortSignal.timeout(30000),
+    let elements = [];
+
+    try {
+      const overpassResponse = await fetch(
+        "https://overpass-api.de/api/interpreter",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Accept": "application/json",
+            "User-Agent": "ParkSmartApp/1.0",
+          },
+          body: new URLSearchParams({
+            data: query,
+          }),
+          signal: AbortSignal.timeout(20000),
+        }
+      );
+
+      if (overpassResponse.ok) {
+        const overpassData = await overpassResponse.json();
+        elements = overpassData.elements || [];
       }
-    );
-
-    if (!overpassResponse.ok) {
-      return res.status(503).json({
-        success: false,
-        message: "Parking data service is temporarily unavailable. Please try again later.",
-      });
+    } catch (overpassErr) {
+      console.error("Overpass API error/blocked:", overpassErr.message);
     }
-
-    const overpassData = await overpassResponse.json();
-    const elements = overpassData.elements || [];
 
     return res.status(200).json({
       success: true,
@@ -91,7 +92,7 @@ router.post("/search", async (req, res) => {
       position: [lat, lon],
       elements,
       count: elements.length,
-      message: "Live parking locations fetched successfully.",
+      message: "Parking locations processed successfully.",
     });
 
   } catch (error) {
