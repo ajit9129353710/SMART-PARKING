@@ -49,12 +49,12 @@ router.post("/search", async (req, res) => {
     const lat = Number(geoData[0].lat);
     const lon = Number(geoData[0].lon);
 
+    const radius = 5000;
     const query = `
       [out:json][timeout:25];
-      area[name="${cleanCity}"]->.searchArea;
       (
-        node["amenity"="parking"](area.searchArea);
-        way["amenity"="parking"](area.searchArea);
+        node["amenity"="parking"](around:${radius},${lat},${lon});
+        way["amenity"="parking"](around:${radius},${lat},${lon});
       );
       out center tags;
     `;
@@ -83,7 +83,7 @@ router.post("/search", async (req, res) => {
         elements = overpassData.elements || [];
       }
     } catch (overpassErr) {
-      console.error("Overpass API error/blocked:", overpassErr.message);
+      console.error("Overpass API error:", overpassErr.message);
     }
 
     return res.status(200).json({
@@ -92,7 +92,7 @@ router.post("/search", async (req, res) => {
       position: [lat, lon],
       elements,
       count: elements.length,
-      message: "Parking locations processed successfully.",
+      message: "Parking locations fetched successfully.",
     });
 
   } catch (error) {
